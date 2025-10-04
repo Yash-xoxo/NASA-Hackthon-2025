@@ -1,0 +1,253 @@
+<!--
+Cupola & NBL Demo - Single-file static web app
+Usage: Upload this file to a public hosting location (GitHub Pages, Google Drive public link, Netlify, etc.)
+Files: index.html (this file)
+
+Features:
+- Cupola viewer: search NASA Image and Video Library for "Earth from Space" images, show geolocation if available
+- NBL Mini-game: simple neutral-buoyancy-themed simulation where user adjusts ballast to achieve neutral buoyancy
+- Accessible, responsive, no backend required
+
+Notes & credits:
+- Images loaded from NASA Image and Video Library (https://images.nasa.gov)
+- This is a demo/prototype. For production, add error handling, rate limiting, and improved accessibility.
+
+How to publish:
+1. Save this file as index.html
+2. Upload to your Google Drive, set to public (or use GitHub Pages / Netlify)
+3. Share the public link (no sign-in required) for NASA Space Apps submission
+-->
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cupola & NBL Demo — NASA Space Apps</title>
+  <meta name="description" content="Cupola viewer + Neutral Buoyancy Lab mini-game — educational demo for NASA Space Apps">
+  <style>
+    :root{--bg:#071740;--card:#0b2348;--accent:#ff8a00;--muted:#cbd5e1;--glass: rgba(255,255,255,0.04)}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#02102b 0%, #071740 100%);color:var(--muted)}
+    .wrap{max-width:1100px;margin:24px auto;padding:24px}
+    header{display:flex;gap:16px;align-items:center}
+    h1{margin:0;font-size:24px;color:#fff}
+    p.subtitle{margin:0;color:#9fb0d1}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:18px;margin-top:18px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    input[type=text]{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--muted)}
+    button{background:var(--accent);color:#071740;border:none;padding:10px 12px;border-radius:8px;cursor:pointer}
+    .img-wrap{height:420px;border-radius:10px;overflow:hidden;background:#001025;display:flex;align-items:center;justify-content:center}
+    .img-wrap img{max-width:100%;max-height:100%;display:block}
+    .meta{font-size:13px;color:#9fb0d1;margin-top:8px}
+    .game-canvas{background:linear-gradient(180deg,#06345f,#05253f);border-radius:8px}
+    label{font-size:13px;color:#9fb0d1}
+    .slider{width:100%}
+    footer{margin-top:18px;font-size:13px;color:#89a6d0}
+    .small{font-size:12px;color:#7f9ac0}
+    @media(max-width:980px){.grid{grid-template-columns:1fr;}.img-wrap{height:320px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Cupola & NBL Demo</h1>
+        <p class="subtitle">Interactive cupola viewer + neutral buoyancy mini-game — prototype for NASA Space Apps</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="max-width:72%">
+              <label for="query">Search Cupola Images (NASA)</label>
+              <div class="controls" style="margin-top:8px">
+                <input id="query" type="text" value="Earth from Space" aria-label="Search query">
+                <button id="searchBtn">Search</button>
+              </div>
+            </div>
+            <div style="text-align:right">
+              <div class="small">Demo Mode</div>
+              <div class="small">No NASA API key required</div>
+            </div>
+          </div>
+
+          <div class="img-wrap" id="imgWrap" style="margin-top:12px">
+            <div id="placeholder" style="text-align:center;color:#2fa4ff">
+              <div style="font-size:36px">⭘</div>
+              <div class="small">Cupola viewport preview</div>
+            </div>
+            <img id="cupolaImg" alt="Cupola image" style="display:none">
+          </div>
+
+          <div class="meta" id="imgMeta">Image metadata will appear here.</div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <h3 style="margin-top:0;color:#fff">About this demo</h3>
+          <p class="small">This static demo fetches public images from NASA's Image and Video Library and shows a simple neutral buoyancy mini-game. Use the search box to find cupola-style images (e.g., "Earth from Space", "ISS Cupola").
+          </p>
+          <p class="small">Image credits: NASA Image and Video Library (public domain). For production, comply with NASA credit requirements.</p>
+        </div>
+
+      </div>
+
+      <aside>
+        <div class="card">
+          <h3 style="margin-top:0;color:#fff">NBL Mini-Game</h3>
+          <canvas id="game" width="380" height="240" class="game-canvas"></canvas>
+          <div style="margin-top:12px">
+            <label for="ballast">Ballast weight (kg)</label>
+            <input id="ballast" class="slider" type="range" min="0" max="50" value="25">
+            <div style="display:flex;justify-content:space-between;margin-top:6px"><span class="small">0</span><span class="small">50</span></div>
+
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <button id="resetBtn" style="flex:1;background:#2b6ea3;color:#fff">Reset</button>
+              <button id="tryBtn" style="flex:1;background:#1f8f5b;color:#fff">Try Task</button>
+            </div>
+
+            <div id="gameMsg" class="small" style="margin-top:10px;color:#cfe9d8">Adjust ballast to achieve neutral buoyancy at the target depth.</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <h3 style="margin-top:0;color:#fff">How it maps to learning</h3>
+          <ul class="small">
+            <li>Spatial awareness & observational learning (cupola)</li>
+            <li>Concepts of buoyancy & mass in microgravity (NBL)</li>
+            <li>Short interactions for classroom/museum use</li>
+          </ul>
+        </div>
+
+      </aside>
+    </div>
+
+    <footer>
+      <div class="small">Prototype created for NASA Space Apps — credit NASA Image and Video Library. Save this file as <code>index.html</code> and upload to a public folder to get a shareable link.</div>
+    </footer>
+  </div>
+
+  <script>
+    // Simple helper: fetch NASA Image and Video Library
+    async function searchNasa(query){
+      const url = 'https://images-api.nasa.gov/search?q='+encodeURIComponent(query)+'&media_type=image';
+      try{
+        const res = await fetch(url);
+        const json = await res.json();
+        return json.collection.items;
+      }catch(e){console.error(e);return []}
+    }
+
+    const searchBtn = document.getElementById('searchBtn');
+    const queryInput = document.getElementById('query');
+    const cupolaImg = document.getElementById('cupolaImg');
+    const imgWrap = document.getElementById('imgWrap');
+    const placeholder = document.getElementById('placeholder');
+    const imgMeta = document.getElementById('imgMeta');
+
+    searchBtn.addEventListener('click', async ()=>{
+      const q = queryInput.value.trim();
+      if(!q) return;
+      placeholder.style.display='block'; cupolaImg.style.display='none'; imgMeta.textContent='Loading...';
+      const items = await searchNasa(q);
+      if(!items || items.length===0){imgMeta.textContent='No images found.'; return}
+      // pick first item with links
+      const item = items.find(i=>i.links && i.links.length>0) || items[0];
+      const href = item.links[0].href;
+      cupolaImg.src = href;
+      cupolaImg.onload = ()=>{placeholder.style.display='none'; cupolaImg.style.display='block'};
+      // metadata
+      const data = item.data && item.data[0] ? item.data[0] : {};
+      const title = data.title || 'Untitled';
+      const date = data.date_created ? new Date(data.date_created).toLocaleDateString() : '';
+      const desc = data.description ? data.description.substring(0,200)+'...' : '';
+      imgMeta.innerHTML = `<strong>${title}</strong> ${date}<div class=\"small\">${desc}</div><div class=\"small\">Credit: NASA</div>`;
+    });
+
+    // Auto-run initial search
+    (async ()=>{ searchBtn.click(); })();
+
+    // --- NBL Mini-game ---
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const ballast = document.getElementById('ballast');
+    const resetBtn = document.getElementById('resetBtn');
+    const tryBtn = document.getElementById('tryBtn');
+    const gameMsg = document.getElementById('gameMsg');
+
+    // Simulation parameters (toy model)
+    const waterDensity = 1000; // kg/m^3
+    const objectVolume = 0.03; // m^3 (~30 L)
+    const objectMassBase = 20; // kg - base mass of object without ballast
+    let ballastMass = parseFloat(ballast.value);
+    const targetDepth = 120; // px
+
+    function computeBuoyancy(mass){
+      const weight = mass * 9.81; // N
+      const buoyantForce = waterDensity * objectVolume * 9.81; // N
+      const net = buoyantForce - weight; // positive -> rises
+      return net;
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // draw water background
+      const grad = ctx.createLinearGradient(0,0,0,canvas.height);
+      grad.addColorStop(0,'rgba(40,160,255,0.08)');
+      grad.addColorStop(1,'rgba(0,40,80,0.12)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      // draw target depth line
+      ctx.strokeStyle = '#ffd8a6'; ctx.lineWidth=2; ctx.setLineDash([6,6]);
+      ctx.beginPath(); ctx.moveTo(20,targetDepth); ctx.lineTo(canvas.width-20,targetDepth); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#ffd8a6'; ctx.font='12px sans-serif'; ctx.fillText('Target depth', 26, targetDepth-8);
+
+      // object position: map net buoyant force to speed
+      const mass = objectMassBase + ballastMass;
+      const net = computeBuoyancy(mass); // N
+      // map net to a y position between 30 and canvas.height-40
+      // for demo: net between -300 and +300 maps to bottom/top
+      const normalized = Math.max(-1, Math.min(1, net/300));
+      const y = Math.round((1 - (normalized+1)/2) * (canvas.height-60) + 30);
+
+      // draw object
+      ctx.fillStyle = '#ffd6c2';
+      ctx.beginPath(); ctx.ellipse(canvas.width/2, y, 36, 24, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='13px sans-serif'; ctx.fillText('Object', canvas.width/2 - 22, y+5);
+
+      // draw mass/buoyancy info
+      ctx.fillStyle='#cfe9d8'; ctx.font='12px sans-serif';
+      ctx.fillText(`Mass: ${mass.toFixed(1)} kg`, 12, canvas.height-28);
+      ctx.fillText(`Net buoyant force: ${net.toFixed(1)} N`, 12, canvas.height-12);
+
+      // success indicator
+      if(Math.abs(y - targetDepth) < 8){
+        ctx.fillStyle='#b9f6ca'; ctx.font='14px sans-serif'; ctx.fillText('Neutral buoyancy achieved!', canvas.width-220, 20);
+      }
+    }
+
+    function update(){ ballastMass = parseFloat(ballast.value); draw(); }
+    ballast.addEventListener('input', update);
+    resetBtn.addEventListener('click', ()=>{ ballast.value = 25; update(); gameMsg.textContent='Reset to default ballast.'});
+    tryBtn.addEventListener('click', ()=>{
+      // quick test: show success if near target
+      const mass = objectMassBase + ballastMass;
+      const net = computeBuoyancy(mass);
+      const normalized = Math.max(-1, Math.min(1, net/300));
+      const y = Math.round((1 - (normalized+1)/2) * (canvas.height-60) + 30);
+      if(Math.abs(y - targetDepth) < 8){
+        gameMsg.style.color = '#b9f6ca'; gameMsg.textContent = 'Success! You achieved neutral buoyancy — task complete.';
+      } else {
+        gameMsg.style.color = '#ffd1d1'; gameMsg.textContent = 'Not quite. Try adjusting ballast to bring the object closer to the target depth.';
+      }
+    });
+
+    // initial draw
+    update();
+
+  </script>
+</body>
+</html>
